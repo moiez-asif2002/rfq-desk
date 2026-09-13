@@ -1,0 +1,26 @@
+{
+  "id": "01_clean_pdf",
+  "is_rfq": true,
+  "customer_email": "j.miller@northfieldpackaging.com",
+  "requested_delivery_date": "2026-09-30",
+  "has_injection": false,
+  "lines": [
+    {
+      "sku": "BRG-6204-2RS",
+      "quantity": 40
+    },
+    {
+      "sku": "BRG-UCP205",
+      "quantity": 12
+    },
+    {
+      "sku": "PT-VBELT-B52",
+      "quantity": 20
+    },
+    {
+      "sku": "PT-SPKT-40B18-075",
+      "quantity": 6
+    }
+  ],
+  "expected_status": "ready"
+}

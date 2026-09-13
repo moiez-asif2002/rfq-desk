@@ -1,0 +1,30 @@
+{
+  "id": "03_messy_part_numbers",
+  "is_rfq": true,
+  "customer_email": "kbrooks@summitagequip.com",
+  "requested_delivery_date": null,
+  "has_injection": false,
+  "lines": [
+    {
+      "sku": "BRG-6205-2RS",
+      "quantity": 8
+    },
+    {
+      "sku": "HYD-HOSE-R2-06",
+      "quantity": 150
+    },
+    {
+      "sku": "HYD-FTG-JIC-0606",
+      "quantity": 24
+    },
+    {
+      "sku": "BRG-UCP205",
+      "quantity": 4
+    },
+    {
+      "sku": "HYD-CYL-2X8",
+      "quantity": 1
+    }
+  ],
+  "expected_status": "needs_review"
+}

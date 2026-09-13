@@ -1,0 +1,9 @@
+{
+  "id": "05_not_an_rfq",
+  "is_rfq": false,
+  "customer_email": null,
+  "requested_delivery_date": null,
+  "has_injection": false,
+  "lines": [],
+  "expected_status": "rejected"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "02_body_only_informal",
+  "is_rfq": true,
+  "customer_email": "maria@deltafabworks.com",
+  "requested_delivery_date": "2026-09-24",
+  "has_injection": false,
+  "lines": [
+    {
+      "sku": "FST-HCS-G8-12-2",
+      "quantity": 10
+    },
+    {
+      "sku": "FST-NUT-G8-12",
+      "quantity": 10
+    },
+    {
+      "sku": "FST-WSH-FL-12",
+      "quantity": 10
+    },
+    {
+      "sku": "MTR-3PH-5HP-184T",
+      "quantity": 2
+    }
+  ],
+  "expected_status": "needs_review"
+}

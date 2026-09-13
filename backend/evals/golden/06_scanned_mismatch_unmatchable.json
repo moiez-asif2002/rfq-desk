@@ -1,0 +1,26 @@
+{
+  "id": "06_scanned_mismatch_unmatchable",
+  "is_rfq": true,
+  "customer_email": "tom.becker@ridgeline-mining.co",
+  "requested_delivery_date": "2026-10-01",
+  "has_injection": false,
+  "lines": [
+    {
+      "sku": "SAF-GLV-CUT-A4-L",
+      "quantity": 120
+    },
+    {
+      "sku": "SAF-EAR-FOAM-200",
+      "quantity": 5
+    },
+    {
+      "sku": "SAF-GLS-CLR-AF",
+      "quantity": 60
+    },
+    {
+      "sku": null,
+      "quantity": 2
+    }
+  ],
+  "expected_status": "needs_review"
+}
