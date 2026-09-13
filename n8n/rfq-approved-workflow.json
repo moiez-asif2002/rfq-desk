@@ -1,0 +1,125 @@
+{
+  "id": "rfqDeskExport001",
+  "name": "RFQ Desk - approved quote export",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rfq-approved",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "3f1c1a4e-7d2b-4e7a-9a51-0c8f1b6e2a01",
+      "name": "Approved quote webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "b6d3e0f2-5a8c-4b1e-9f7d-2c4a6e8b0d13"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verify the Stripe-style signature RFQ Desk puts on every export: t=<unix>,v1=<hmac>.\nconst crypto = require('crypto');\nconst item = $input.first();\nconst headers = item.json.headers || {};\nconst secret = $env.OUTBOUND_WEBHOOK_SECRET;\nconst raw = await this.helpers.getBinaryDataBuffer(0, 'data');\n\nconst parts = Object.fromEntries(String(headers['x-rfqdesk-signature'] || '').split(',').map((p) => p.split('=')));\nconst ts = Number(parts.t);\nconst expected = crypto.createHmac('sha256', secret).update(`${ts}.`).update(raw).digest('hex');\nconst fresh = Number.isFinite(ts) && Math.abs(Date.now() / 1000 - ts) < 300;\nconst valid = Boolean(\n  fresh && parts.v1 && parts.v1.length === expected.length &&\n  crypto.timingSafeEqual(Buffer.from(parts.v1), Buffer.from(expected))\n);\n\nreturn [{ json: { valid, idempotency_key: headers['x-rfqdesk-idempotency-key'], quote: item.json.body } }];"
+      },
+      "id": "8c2e4b6a-1f3d-4c5e-8a7b-9d0e1f2a3b02",
+      "name": "Verify HMAC signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5e7a9c1b-3d5f-4a7c-9e1b-3d5f7a9c1b03",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c04",
+      "name": "Signature valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape the message a sales channel / CRM step would receive.\nconst { quote, idempotency_key } = $input.first().json;\nconst total = Number(quote.total).toLocaleString('en-US', { style: 'currency', currency: 'USD' });\nconst lines = quote.lines.map((l) => `- ${l.quantity} x ${l.sku} (${l.name}) @ $${l.unit_price}`).join('\\n');\n\nreturn [{\n  json: {\n    channel: '#sales-quotes',\n    quote_number: quote.quote_number,\n    idempotency_key,\n    text: `Quote ${quote.quote_number} approved by ${quote.approved_by}\\n` +\n      `Customer: ${quote.customer.company || quote.customer.name} <${quote.customer.email}>\\n` +\n      `Rep: ${quote.assigned_rep} | Total: ${total} | Needed by: ${quote.requested_delivery_date || 'n/a'}\\n${lines}`,\n  },\n}];"
+      },
+      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d05",
+      "name": "Build sales notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, -100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { received: true, quote_number: $json.quote_number } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e06",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [960, -100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'invalid signature' } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f07",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [720, 100]
+    }
+  ],
+  "connections": {
+    "Approved quote webhook": {
+      "main": [[{ "node": "Verify HMAC signature", "type": "main", "index": 0 }]]
+    },
+    "Verify HMAC signature": {
+      "main": [[{ "node": "Signature valid?", "type": "main", "index": 0 }]]
+    },
+    "Signature valid?": {
+      "main": [
+        [{ "node": "Build sales notification", "type": "main", "index": 0 }],
+        [{ "node": "Respond 401", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build sales notification": {
+      "main": [[{ "node": "Respond 200", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "active": false
+}
