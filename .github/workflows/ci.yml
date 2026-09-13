@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_eval:
+        description: "Run the Gemini extraction eval (uses GCP credentials)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: rfq
+          POSTGRES_PASSWORD: rfq
+          POSTGRES_DB: rfq_desk_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rfq" --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check .
+      - name: Tests
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://rfq:rfq@localhost:5432/rfq_desk_test
+        run: uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t rfq-desk-api ./backend
+      - run: docker build -t rfq-desk-web --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 ./frontend
+
+  # Model-quality gate. Manual (and would run on prompt/model PRs) because it calls Vertex AI.
+  extraction-eval:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_eval
+    runs-on: ubuntu-latest
+    needs: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: rfq
+          POSTGRES_PASSWORD: rfq
+          POSTGRES_DB: rfq_desk
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rfq" --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: postgresql+psycopg://rfq:rfq@localhost:5432/rfq_desk
+      GEMINI_BACKEND: vertex
+      GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+      GCP_LOCATION: ${{ vars.GCP_LOCATION }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+      GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-sa.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - name: Write service account key
+        run: echo '${{ secrets.GCP_SA_KEY }}' > "$GOOGLE_APPLICATION_CREDENTIALS"
+      - run: uv run python -m app.seed
+      - run: uv run python -m evals.run_eval
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-report
+          path: backend/evals/reports/
