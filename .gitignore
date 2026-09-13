@@ -1,0 +1,27 @@
+# Secrets — never commit
+secrets/
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+.next/
+out/
+
+# Personal notes
+DEMO.md
+
+# Local artifacts
+**/evals/reports/
+*.log
+.DS_Store

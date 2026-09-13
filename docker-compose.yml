@@ -1,0 +1,66 @@
+name: rfq-desk
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rfq
+      POSTGRES_PASSWORD: rfq
+      POSTGRES_DB: rfq_desk
+    ports:
+      - "5434:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rfq -d rfq_desk"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Receives signed "rfq.approved" exports and fans them out (notifications, sheets, CRM).
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_SECURE_COOKIE: "false"
+      NODE_FUNCTION_ALLOW_BUILTIN: crypto
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      OUTBOUND_WEBHOOK_SECRET: ${OUTBOUND_WEBHOOK_SECRET:-dev-outbound-secret}
+      GENERIC_TIMEZONE: UTC
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./n8n:/workflows:ro
+
+  api:
+    profiles: ["full"]
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://rfq:rfq@db:5432/rfq_desk
+      OUTBOUND_WEBHOOK_URL: http://n8n:5678/webhook/rfq-approved
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/gcp-sa.json
+      GMAIL_CLIENT_SECRETS_FILE: /secrets/gmail-oauth-client.json
+    volumes:
+      - ./secrets:/secrets:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    profiles: ["full"]
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3001:3000"
+    depends_on:
+      - api
+
+volumes:
+  db-data:
+  n8n-data:

@@ -1,0 +1,45 @@
+[project]
+name = "rfq-desk"
+version = "0.1.0"
+description = "RFQ intake: email + PDF -> AI extraction -> catalog matching -> human review -> quote draft + signed export"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.141",
+    "sqlalchemy>=2.0.52",
+    "psycopg[binary]>=3.3",
+    "pydantic-settings>=2.15",
+    "google-genai>=2.23",
+    "google-auth>=2.40",
+    "google-auth-oauthlib>=1.4",
+    "google-api-python-client>=2.200",
+    "httpx>=0.28",
+    "cryptography>=45",
+    "python-multipart>=0.0.20",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1",
+    "ruff>=0.12",
+    "reportlab>=5.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["S101", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106"]
+"app/config.py" = ["S105"]  # local-dev defaults; real secrets come from env
+"scripts/**" = ["S311"]
